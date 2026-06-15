@@ -671,6 +671,56 @@ textarea.answer:focus { border-color: #4a4a8a; }
 
 <script>
 // ─────────────────────────────────────────────
+// SUPABASE
+// ─────────────────────────────────────────────
+const SB_URL = 'https://aljfevndzqigddrevpjf.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsamZldm5kenFpZ2RkcmV2cGpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MzM0MzcsImV4cCI6MjA5NzEwOTQzN30.PdMlU2XCwf16aJnmdA-ZLQ_ZHoTIUcSK3guCtBbQAG4';
+const SB_HEADERS = {
+  'apikey': SB_KEY,
+  'Authorization': `Bearer ${SB_KEY}`,
+  'Content-Type': 'application/json',
+  'Prefer': 'resolution=merge-duplicates'
+};
+
+async function sbGet(id) {
+  try {
+    const res = await fetch(`${SB_URL}/rest/v1/tracker_data?id=eq.${encodeURIComponent(id)}&select=data`, { headers: SB_HEADERS });
+    const rows = await res.json();
+    return rows.length ? rows[0].data : null;
+  } catch(e) { return null; }
+}
+
+async function sbSet(id, data) {
+  try {
+    await fetch(`${SB_URL}/rest/v1/tracker_data`, {
+      method: 'POST',
+      headers: SB_HEADERS,
+      body: JSON.stringify({ id, data, updated_at: new Date().toISOString() })
+    });
+  } catch(e) {}
+}
+
+async function syncFromSupabase() {
+  const todayKey = todayStr();
+
+  // daily checks
+  const daily = await sbGet(`daily_${todayKey}`);
+  if (daily) { dailyChecked = daily; saveDailyCheckedLocal(); renderDaily(); }
+
+  // task memos
+  const memos = await sbGet(`memos_${todayKey}`);
+  if (memos) { taskMemos = memos; saveTaskMemosLocal(); renderDaily(); }
+
+  // progress
+  const prog = await sbGet('progress');
+  if (prog) { progressData = prog; saveProgressLocal(); updateGoalBar(); }
+
+  // current week
+  const wdata = await sbGet(`weekly_${weekMonday(0)}`);
+  if (wdata) localStorage.setItem(wKey(0), JSON.stringify(wdata));
+}
+
+// ─────────────────────────────────────────────
 // DATA
 // ─────────────────────────────────────────────
 const TODAY = new Date();
@@ -787,16 +837,24 @@ let dailyChecked = (() => {
   } catch(e) { return {}; }
 })();
 
-function saveDailyChecked() {
+function saveDailyCheckedLocal() {
   localStorage.setItem(DAILY_KEY, JSON.stringify({ date: todayStr(), checked: dailyChecked }));
+}
+function saveDailyChecked() {
+  saveDailyCheckedLocal();
+  sbSet(`daily_${todayStr()}`, dailyChecked);
 }
 
 let progressData = (() => {
   try { return JSON.parse(localStorage.getItem(PROGRESS_KEY) || '{}'); } catch(e) { return {}; }
 })();
 
-function saveProgress() {
+function saveProgressLocal() {
   localStorage.setItem(PROGRESS_KEY, JSON.stringify(progressData));
+}
+function saveProgress() {
+  saveProgressLocal();
+  sbSet('progress', progressData);
   updateGoalBar();
 }
 
@@ -878,8 +936,12 @@ let taskMemos = (() => {
   } catch(e) { return {}; }
 })();
 
-function saveTaskMemos() {
+function saveTaskMemosLocal() {
   localStorage.setItem(TASK_MEMO_KEY, JSON.stringify({ date: todayStr(), memos: taskMemos }));
+}
+function saveTaskMemos() {
+  saveTaskMemosLocal();
+  sbSet(`memos_${todayStr()}`, taskMemos);
 }
 
 function toggleTaskMemo(key) {
@@ -982,6 +1044,7 @@ function saveWeekly() {
     data['chk_' + el.dataset.ckey] = el.classList.contains('checked');
   });
   localStorage.setItem(wKey(weekOffset), JSON.stringify(data));
+  sbSet(`weekly_${weekMonday(weekOffset)}`, data);
   updateMonthly();
   renderHistory();
   updateGoalBar();
@@ -1282,6 +1345,7 @@ updateGoalBar();
 initSleep();
 initDepend();
 initTrouble();
+syncFromSupabase();
 </script>
 </body>
 </html>
