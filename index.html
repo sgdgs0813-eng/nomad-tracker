@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ノマド達成トラッカー</title>
+<style>
+:root {
+  --bg: #0f0f1a;
+  --surface: #1a1a2e;
+  --surface2: #0f0f1a;
+  --border: #2a2a4a;
+  --text: #e0e0e0;
+  --muted: #666;
+  --accent: #4cc9f0;
+  --orange: #f4a261;
+  --purple: #7b2ff7;
+  --green: #43d9c8;
+  --pink: #ff6b9d;
+  --yellow: #f9c74f;
+  --tab-height: 60px;
+  --header-height: 110px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: -apple-system, 'Hiragino Sans', 'Yu Gothic', sans-serif;
+  background: var(--bg); color: var(--text);
+  min-height: 100vh;
+  padding-bottom: calc(var(--tab-height) + env(safe-area-inset-bottom));
+}
+
+/* ── HEADER ── */
+.app-header {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: #16213e;
+  padding: 12px 16px 10px;
+  padding-top: calc(12px + env(safe-area-inset-top));
+  border-bottom: 1px solid var(--border);
+}
+.header-top {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.goal-text { font-size: 12px; color: var(--accent); font-weight: bold; }
+.date-text { font-size: 11px; color: var(--muted); }
+
+.goal-progress {
+  display: flex; align-items: center; gap: 8px;
+}
+.goal-bar-wrap { flex: 1; }
+.goal-bar-label {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: var(--muted); margin-bottom: 3px;
+}
+.goal-bar { height: 5px; background: var(--border); border-radius: 3px; }
+.goal-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--purple));
+  transition: width 0.6s ease;
+}
+.goal-pct {
+  font-size: 13px; font-weight: bold; color: var(--accent);
+  min-width: 36px; text-align: right;
+}
+
+/* ── MAIN SCROLL ── */
+.main {
+  padding-top: calc(var(--header-height) + env(safe-area-inset-top));
+}
+
+/* ── TABS ── */
+.tab-content { display: none; padding: 12px 12px 0; }
+.tab-content.active { display: block; }
+
+/* ── BOTTOM NAV ── */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+  background: #16213e;
+  border-top: 1px solid var(--border);
+  display: flex;
+  padding-bottom: env(safe-area-inset-bottom);
+  height: calc(var(--tab-height) + env(safe-area-inset-bottom));
+}
+.nav-item {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 3px; cursor: pointer; padding: 8px 0;
+  color: var(--muted); font-size: 10px;
+  transition: color 0.2s;
+  user-select: none;
+}
+.nav-item .nav-icon { font-size: 20px; }
+.nav-item.active { color: var(--accent); }
+
+/* ── SHARED COMPONENTS ── */
+.card {
+  background: var(--surface); border-radius: 12px;
+  padding: 14px; margin-bottom: 10px;
+}
+.card-title {
+  font-size: 11px; color: var(--muted); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 5px;
+}
+
+/* ── DAILY TASKS ── */
+.daily-progress-wrap { margin-bottom: 10px; }
+.daily-progress-label {
+  display: flex; justify-content: space-between;
+  font-size: 11px; color: var(--muted); margin-bottom: 4px;
+}
+.daily-bar { height: 6px; background: var(--border); border-radius: 3px; }
+.daily-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--purple));
+  transition: width 0.4s;
+}
+
+.section {
+  background: var(--surface); border-radius: 12px;
+  overflow: hidden; border-left: 3px solid var(--color);
+  margin-bottom: 10px;
+}
+.section-header {
+  padding: 10px 12px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(255,255,255,0.03);
+  cursor: pointer; user-select: none;
+}
+.section-title { font-size: 12px; font-weight: bold; color: var(--color); }
+.section-badge {
+  font-size: 10px; color: var(--muted); background: var(--border);
+  padding: 2px 7px; border-radius: 10px;
+}
+.section-body { padding: 6px 10px 10px; display: flex; flex-direction: column; gap: 5px; }
+.section.collapsed .section-body { display: none; }
+
+.task-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 9px 10px; border-radius: 8px;
+  background: var(--surface2); cursor: pointer;
+  transition: background 0.15s; -webkit-user-select: none;
+}
+.task-row.done { opacity: 0.38; }
+.task-row.done .task-text { text-decoration: line-through; }
+
+.checkbox {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid var(--color);
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+}
+.task-row.done .checkbox { background: var(--color); }
+.checkbox::after { content: '✓'; font-size: 12px; color: #000; display: none; }
+.task-row.done .checkbox::after { display: block; }
+
+.task-text { font-size: 13px; line-height: 1.5; flex: 1; }
+.task-meta { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.task-note { font-size: 10px; color: #555; }
+.task-note-btn {
+  font-size: 15px; padding: 2px 4px; flex-shrink: 0;
+  opacity: 0.4; cursor: pointer; align-self: flex-start; margin-top: 1px;
+  transition: opacity 0.15s;
+}
+.task-note-btn:hover { opacity: 0.9; }
+.task-note-btn.has-memo { opacity: 0.85; }
+.task-memo-area {
+  display: none; padding: 6px 10px 8px 42px;
+  background: var(--surface);
+}
+.task-memo-area.open { display: block; }
+.task-memo-input {
+  width: 100%; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: 7px;
+  color: var(--text); font-family: inherit; font-size: 12px;
+  line-height: 1.5; padding: 7px 10px; resize: none;
+  outline: none; min-height: 52px;
+  transition: border-color 0.2s;
+}
+.task-memo-input:focus { border-color: #4a4a8a; }
+.task-memo-saved { font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+.all-done-card {
+  background: #0a2a1a; border: 1px solid var(--green);
+  border-radius: 12px; padding: 20px; text-align: center;
+  color: var(--green); font-size: 15px; display: none; margin-bottom: 10px;
+}
+
+/* ── WEEKLY REVIEW ── */
+.week-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.week-nav-btn {
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--muted); padding: 6px 14px; border-radius: 8px;
+  cursor: pointer; font-size: 14px;
+}
+.week-nav-btn:hover { color: var(--text); }
+.week-label { font-size: 12px; color: var(--muted); text-align: center; }
+
+.subtabs {
+  display: flex; gap: 6px; margin-bottom: 12px;
+  overflow-x: auto; padding-bottom: 2px;
+}
+.subtab {
+  flex-shrink: 0; padding: 6px 14px; border-radius: 20px;
+  font-size: 12px; cursor: pointer; color: var(--muted);
+  background: var(--surface); border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.subtab.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: bold; }
+
+.subtab-content { display: none; }
+.subtab-content.active { display: block; }
+
+.question-block { margin-bottom: 12px; }
+.question-label {
+  font-size: 11px; color: var(--muted); margin-bottom: 5px;
+  display: flex; align-items: center; gap: 4px;
+}
+textarea.answer {
+  width: 100%; min-height: 64px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text);
+  font-family: inherit; font-size: 13px; line-height: 1.6;
+  padding: 10px; resize: none; outline: none;
+  transition: border-color 0.2s;
+}
+textarea.answer.sm { min-height: 44px; }
+textarea.answer:focus { border-color: #4a4a8a; }
+
+.income-row {
+  display: flex; gap: 8px; margin-bottom: 10px;
+}
+.income-box {
+  flex: 1; background: var(--surface2); border-radius: 8px; padding: 10px;
+}
+.income-label { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+.income-input {
+  width: 100%; background: transparent; border: none;
+  border-bottom: 1px solid var(--border); color: var(--orange);
+  font-size: 18px; font-weight: bold; outline: none;
+  font-family: inherit; padding: 2px 0;
+}
+.income-unit { font-size: 10px; color: var(--muted); }
+
+.monthly-bar-wrap { margin-bottom: 6px; }
+.monthly-bar-label {
+  display: flex; justify-content: space-between;
+  font-size: 11px; color: var(--muted); margin-bottom: 4px;
+}
+.monthly-bar { height: 8px; background: var(--border); border-radius: 4px; }
+.monthly-fill {
+  height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, var(--orange), #e76f51);
+  transition: width 0.4s;
+}
+
+.checklist { display: flex; flex-direction: column; gap: 6px; }
+.check-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; background: var(--surface2); border-radius: 8px;
+  cursor: pointer; -webkit-user-select: none;
+}
+.check-box {
+  width: 20px; height: 20px; border-radius: 5px;
+  border: 2px solid var(--border); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; transition: all 0.15s; color: transparent;
+}
+.check-row.checked .check-box { background: var(--accent); border-color: var(--accent); color: #000; }
+.check-row.checked .check-label { text-decoration: line-through; opacity: 0.45; }
+.check-label { font-size: 13px; }
+
+.history-list { display: flex; flex-direction: column; gap: 5px; }
+.history-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 10px; background: var(--surface2); border-radius: 7px;
+  font-size: 12px;
+}
+.history-week { color: var(--muted); min-width: 80px; }
+.history-note { color: #555; font-size: 11px; flex: 1; margin: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-income { color: var(--orange); font-weight: bold; min-width: 60px; text-align: right; }
+
+/* ── PROGRESS TAB ── */
+.phase-cards { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.phase-card {
+  background: var(--surface2); border-radius: 10px; padding: 12px 14px;
+  border-left: 4px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; transition: border-color 0.2s;
+}
+.phase-card.current { border-left-color: var(--purple); background: #1a0a3a; }
+.phase-card.done { border-left-color: var(--accent); opacity: 0.55; }
+.phase-left { }
+.phase-num { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+.phase-target { font-size: 15px; font-weight: bold; color: var(--accent); }
+.phase-period { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.phase-status { font-size: 20px; }
+
+.milestone-section { margin-bottom: 12px; }
+.milestone-title {
+  font-size: 11px; color: var(--muted); margin-bottom: 8px;
+  padding: 0 2px;
+}
+
+.save-fab {
+  position: fixed; bottom: calc(var(--tab-height) + env(safe-area-inset-bottom) + 14px);
+  right: 16px; z-index: 90;
+  background: var(--accent); color: #000; border: none;
+  width: 52px; height: 52px; border-radius: 50%;
+  font-size: 20px; cursor: pointer;
+  box-shadow: 0 4px 16px rgba(76,201,240,0.4);
+  display: none;
+}
+.save-fab.show { display: flex; align-items: center; justify-content: center; }
+
+.saved-toast {
+  position: fixed; bottom: calc(var(--tab-height) + env(safe-area-inset-bottom) + 14px);
+  left: 50%; transform: translateX(-50%);
+  background: #0a2a1a; color: var(--green);
+  padding: 8px 18px; border-radius: 20px; font-size: 12px;
+  opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 200;
+}
+.saved-toast.show { opacity: 1; }
+
+.reset-link {
+  text-align: center; padding: 10px 0;
+  font-size: 11px; color: #444; cursor: pointer;
+}
+
+/* ── DAILY MEMOS ── */
+.daily-memos { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+
+.memo-card {
+  background: var(--surface); border-radius: 12px; overflow: hidden;
+}
+.memo-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; cursor: pointer; user-select: none;
+}
+.memo-icon-title { display: flex; align-items: center; gap: 8px; }
+.memo-icon { font-size: 18px; }
+.memo-title { font-size: 13px; font-weight: bold; color: var(--text); }
+.memo-preview { font-size: 11px; color: var(--muted); max-width: 55%; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.memo-body { display: none; padding: 0 14px 14px; border-top: 1px solid var(--border); }
+.memo-body.open { display: block; }
+
+.memo-save-row { display: flex; justify-content: flex-end; margin-top: 10px; }
+.memo-save-btn {
+  background: var(--accent); color: #000; border: none;
+  padding: 7px 20px; border-radius: 8px; font-size: 13px;
+  font-weight: bold; cursor: pointer;
+}
+
+/* Sleep */
+.sleep-row {
+  display: flex; align-items: center; gap: 8px;
+  margin: 12px 0 14px;
+}
+.sleep-item { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+.sleep-label { font-size: 10px; color: var(--muted); }
+.sleep-input {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 15px;
+  padding: 7px 4px; text-align: center; outline: none;
+  font-family: inherit;
+}
+.sleep-sep { color: var(--muted); font-size: 14px; flex-shrink: 0; padding-top: 18px; }
+.sleep-duration {
+  font-size: 18px; font-weight: bold; color: var(--accent);
+  background: var(--surface2); border-radius: 8px;
+  padding: 7px 4px; width: 100%; text-align: center;
+}
+.sleep-quality { margin-bottom: 4px; }
+.quality-btns { display: flex; gap: 6px; }
+.quality-btn {
+  flex: 1; text-align: center; padding: 7px 4px;
+  background: var(--surface2); border-radius: 8px;
+  font-size: 11px; cursor: pointer; border: 2px solid transparent;
+  transition: border-color 0.15s;
+}
+.quality-btn.selected { border-color: var(--accent); }
+
+/* Depend */
+.depend-items { display: flex; flex-direction: column; gap: 5px; margin: 10px 0 8px; }
+.depend-item {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface2); border-radius: 8px; padding: 7px 10px;
+}
+.depend-item-name { font-size: 13px; }
+.depend-item-right { display: flex; align-items: center; gap: 8px; }
+.depend-item-time { font-size: 13px; color: var(--orange); font-weight: bold; }
+.depend-del { color: #555; font-size: 16px; cursor: pointer; padding: 0 2px; }
+.depend-add-row {
+  display: flex; gap: 6px; margin-top: 6px;
+}
+.depend-input {
+  flex: 1; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 13px;
+  padding: 8px 10px; outline: none; font-family: inherit;
+}
+.depend-time {
+  width: 60px; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--orange); font-size: 13px;
+  padding: 8px 6px; outline: none; font-family: inherit; text-align: center;
+}
+.depend-add-btn {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); padding: 8px 12px; border-radius: 8px;
+  font-size: 13px; cursor: pointer; white-space: nowrap;
+}
+
+/* Trouble */
+.trouble-textarea {
+  width: 100%; min-height: 90px; margin-top: 12px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-family: inherit;
+  font-size: 13px; line-height: 1.6; padding: 10px; resize: none; outline: none;
+}
+.trouble-history { margin-top: 12px; display: flex; flex-direction: column; gap: 5px; }
+.trouble-entry {
+  background: var(--surface2); border-radius: 8px; padding: 9px 12px;
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+}
+.trouble-entry-text { font-size: 12px; line-height: 1.5; flex: 1; }
+.trouble-entry-date { font-size: 10px; color: var(--muted); flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="app-header" id="app-header">
+  <div class="header-top">
+    <div class="goal-text">PC1台で月40万稼いでノマド生活する</div>
+    <div class="date-text" id="date-text"></div>
+  </div>
+  <div class="goal-progress">
+    <div class="goal-bar-wrap">
+      <div class="goal-bar-label">
+        <span>ノマド達成まで</span>
+        <span id="goal-label-right">Phase 1</span>
+      </div>
+      <div class="goal-bar"><div class="goal-fill" id="goal-fill" style="width:0%"></div></div>
+    </div>
+    <div class="goal-pct" id="goal-pct">0%</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- TAB: DAILY -->
+  <div class="tab-content active" id="tab-daily">
+    <div class="daily-progress-wrap">
+      <div class="daily-progress-label">
+        <span>今日の進捗</span>
+        <span id="daily-progress-text">0 / 0</span>
+      </div>
+      <div class="daily-bar"><div class="daily-fill" id="daily-fill" style="width:0%"></div></div>
+    </div>
+    <div class="all-done-card" id="all-done">🎉 今日のタスク全部完了！最高！</div>
+
+    <div id="sections"></div>
+    <div class="reset-link" onclick="resetToday()">今日のチェックをリセット</div>
+  </div>
+
+  <!-- TAB: WEEKLY -->
+  <div class="tab-content" id="tab-weekly">
+    <div class="week-nav">
+      <button class="week-nav-btn" onclick="changeWeek(-1)">◀</button>
+      <div class="week-label" id="week-label"></div>
+      <button class="week-nav-btn" onclick="changeWeek(1)">▶</button>
+    </div>
+
+    <div class="subtabs">
+      <div class="subtab active" onclick="switchSubtab('reflect')">振り返り</div>
+      <div class="subtab" onclick="switchSubtab('income')">収益記録</div>
+      <div class="subtab" onclick="switchSubtab('nextstep')">来週の一手</div>
+    </div>
+
+    <!-- 振り返り -->
+    <div class="subtab-content active" id="subtab-reflect">
+      <div class="card">
+        <div class="card-title">📝 今週の副業進捗</div>
+        <div class="question-block">
+          <div class="question-label">📄 noteはSTEP何まで進んだ？</div>
+          <textarea class="answer sm" data-wkey="note_step" placeholder="例：STEP2完了。本文を書き終えた"></textarea>
+        </div>
+        <div class="question-block">
+          <div class="question-label">📱 アプリ調査メモ（今週追加した件数）</div>
+          <textarea class="answer sm" data-wkey="app_memo" placeholder="例：+2件。計5件。施術記録の悩みが多い"></textarea>
+        </div>
+        <div class="question-block">
+          <div class="question-label">📣 SNS投稿できた回数</div>
+          <textarea class="answer sm" data-wkey="sns" placeholder="例：2回。〇〇の投稿が反応よかった"></textarea>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">💡 学びと気づき</div>
+        <div class="question-block">
+          <div class="question-label">🔥 うまくいったこと</div>
+          <textarea class="answer" data-wkey="good" placeholder="続けること..."></textarea>
+        </div>
+        <div class="question-block">
+          <div class="question-label">⚠️ できなかったこと・理由</div>
+          <textarea class="answer" data-wkey="bad" placeholder="ブロックになったこと..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- 収益記録 -->
+    <div class="subtab-content" id="subtab-income">
+      <div class="card">
+        <div class="card-title">💰 今週の副業収益</div>
+        <div class="income-row">
+          <div class="income-box">
+            <div class="income-label">note売上</div>
+            <input class="income-input" type="number" data-wkey="note_income" placeholder="0" min="0" inputmode="numeric">
+            <div class="income-unit">円</div>
+          </div>
+          <div class="income-box">
+            <div class="income-label">その他</div>
+            <input class="income-input" type="number" data-wkey="other_income" placeholder="0" min="0" inputmode="numeric">
+            <div class="income-unit">円</div>
+          </div>
+        </div>
+        <div class="monthly-bar-wrap">
+          <div class="monthly-bar-label">
+            <span>今月累計</span>
+            <span id="monthly-label">0円 / 目標 150,000円</span>
+          </div>
+          <div class="monthly-bar"><div class="monthly-fill" id="monthly-fill" style="width:0%"></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📊 数字メモ</div>
+        <div class="question-block">
+          <div class="question-label">👁 noteページビュー数</div>
+          <textarea class="answer sm" data-wkey="note_pv" placeholder="例：120PV（+30）"></textarea>
+        </div>
+        <div class="question-block">
+          <div class="question-label">📱 SNSフォロワー数</div>
+          <textarea class="answer sm" data-wkey="followers" placeholder="例：X: 230人（+12）"></textarea>
+        </div>
+        <div class="question-block">
+          <div class="question-label">📦 アプリ調査メモ累計</div>
+          <textarea class="answer sm" data-wkey="app_total" placeholder="例：7件（10件で開発開始）"></textarea>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📅 収益履歴</div>
+        <div class="history-list" id="history-list"></div>
+      </div>
+    </div>
+
+    <!-- 来週の一手 -->
+    <div class="subtab-content" id="subtab-nextstep">
+      <div class="card">
+        <div class="card-title">🎯 来週1番やること（1つだけ）</div>
+        <textarea class="answer" data-wkey="next_focus" style="min-height:80px" placeholder="例：noteの本文を全部書き切る"></textarea>
+      </div>
+      <div class="card">
+        <div class="card-title">✅ 来週のチェックリスト</div>
+        <div class="checklist">
+          <div class="check-row" data-ckey="nw0" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">副業作業を毎日30分やる</div></div>
+          <div class="check-row" data-ckey="nw1" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">SNSを週3回投稿する</div></div>
+          <div class="check-row" data-ckey="nw2" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">整体師の悩みを2件メモする</div></div>
+          <div class="check-row" data-ckey="nw3" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">睡眠7時間を5日以上達成</div></div>
+          <div class="check-row" data-ckey="nw4" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">今週の収益を記録する</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="height:16px"></div>
+  </div>
+
+  <!-- TAB: PROGRESS -->
+  <div class="tab-content" id="tab-progress">
+    <div class="card">
+      <div class="card-title">🗺 現在のフェーズをタップして選ぶ</div>
+      <div class="phase-cards" id="phase-cards">
+        <div class="phase-card" data-phase="1" onclick="setPhase(1)">
+          <div class="phase-left">
+            <div class="phase-num">Phase 1</div>
+            <div class="phase-target">副業 月15万円</div>
+            <div class="phase-period">〜6ヶ月</div>
+          </div>
+          <div class="phase-status">🔥</div>
+        </div>
+        <div class="phase-card" data-phase="2" onclick="setPhase(2)">
+          <div class="phase-left">
+            <div class="phase-num">Phase 2</div>
+            <div class="phase-target">副業 月25万円</div>
+            <div class="phase-period">〜1年</div>
+          </div>
+          <div class="phase-status">⭐</div>
+        </div>
+        <div class="phase-card" data-phase="3" onclick="setPhase(3)">
+          <div class="phase-left">
+            <div class="phase-num">Phase 3</div>
+            <div class="phase-target">副業 月40万円</div>
+            <div class="phase-period">〜1.5年</div>
+          </div>
+          <div class="phase-status">🚀</div>
+        </div>
+        <div class="phase-card" data-phase="4" onclick="setPhase(4)">
+          <div class="phase-left">
+            <div class="phase-num">ノマド達成</div>
+            <div class="phase-target">タイ・フランス移住</div>
+            <div class="phase-period">大目標</div>
+          </div>
+          <div class="phase-status">🌏</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="milestone-section">
+      <div class="milestone-title">Phase 1 達成条件</div>
+      <div class="card">
+        <div class="checklist">
+          <div class="check-row" data-ckey="p1_note" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">noteを3本以上公開</div></div>
+          <div class="check-row" data-ckey="p1_income" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">副業収益が月5万を超えた</div></div>
+          <div class="check-row" data-ckey="p1_sns" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">SNSフォロワー500人以上</div></div>
+          <div class="check-row" data-ckey="p1_app" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">アプリ調査10件完了 or リリース済</div></div>
+          <div class="check-row" data-ckey="p1_habit" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">副業30分/日を1ヶ月継続</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="milestone-section">
+      <div class="milestone-title">ノマド準備チェック</div>
+      <div class="card">
+        <div class="checklist">
+          <div class="check-row" data-ckey="nomad_visa" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">タイ・仏のビザ要件を調べた</div></div>
+          <div class="check-row" data-ckey="nomad_tax" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">海外在住時の日本納税義務を理解した</div></div>
+          <div class="check-row" data-ckey="nomad_income" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">副業月40万が3ヶ月連続で安定</div></div>
+          <div class="check-row" data-ckey="nomad_remote" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">収入がフルリモートで完結している</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="height:16px"></div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <div class="nav-item active" data-tab="daily" onclick="switchTab('daily')">
+    <div class="nav-icon">✅</div>
+    <div>今日</div>
+  </div>
+  <div class="nav-item" data-tab="weekly" onclick="switchTab('weekly')">
+    <div class="nav-icon">📝</div>
+    <div>週次</div>
+  </div>
+  <div class="nav-item" data-tab="progress" onclick="switchTab('progress')">
+    <div class="nav-icon">🗺</div>
+    <div>進捗</div>
+  </div>
+</nav>
+
+<!-- Save FAB (weekly / progress only) -->
+<button class="save-fab" id="save-fab" onclick="saveWeekly()">💾</button>
+<div class="saved-toast" id="saved-toast">保存しました</div>
+
+<script>
+// ─────────────────────────────────────────────
+// DATA
+// ─────────────────────────────────────────────
+const TODAY = new Date();
+const DOW = TODAY.getDay();
+
+const SECTIONS = [
+  {
+    theme: '整体（本業）', color: '#4cc9f0',
+    days: [1,2,3,4,5,6],
+    tasks: [
+      { text: '患者対応を丁寧にやりきる', freq: '毎日（仕事日）' },
+      { text: '後輩に1つ技術を伝える', freq: '週3回', days: [2,4,6] },
+      { text: 'オステオパシー関連を10分読む', freq: '週3回', days: [1,3,5] },
+    ]
+  },
+  {
+    theme: '副業STEP1｜誰に何を売るか決める', color: '#f4a261',
+    days: [1,2,3],
+    tasks: [
+      { text: '整体師仲間の「困っていること」を3つ書き出す', freq: '月曜', days: [1] },
+      { text: '自分が解決できる悩みに○をつける', freq: '月曜', days: [1] },
+      { text: '「誰に」「何を」「なぜ買うか」を1文で書く', freq: '火曜', days: [2] },
+      { text: 'noteで競合記事を3本読んで価格帯メモ', freq: '水曜', days: [3] },
+    ]
+  },
+  {
+    theme: '副業STEP2｜note記事を1本書く', color: '#f4a261',
+    days: [4,5,6,0],
+    tasks: [
+      { text: 'タイトルを3パターン書いて1つ選ぶ', freq: '木曜', days: [4] },
+      { text: '見出し（構成）を5つ作る', freq: '木曜', days: [4] },
+      { text: '本文を1見出し分だけ書く（500字）', freq: '金〜土', days: [5,6] },
+      { text: '全文を書き終える', freq: '土〜日', days: [6,0] },
+    ]
+  },
+  {
+    theme: '副業STEP3｜公開して告知する', color: '#e76f51',
+    days: [1,2,3],
+    tasks: [
+      { text: 'アイキャッチ画像をCanvaで作る（30分）', freq: '月曜', days: [1] },
+      { text: 'noteに投稿する', freq: '月曜', days: [1] },
+      { text: 'SNSで「書いた理由」を投稿する', freq: '月〜火', days: [1,2] },
+      { text: '整体師の知人に直接シェア（1人でいい）', freq: '火曜', days: [2] },
+      { text: '反応・閲覧数をメモして振り返る', freq: '水曜', days: [3] },
+    ]
+  },
+  {
+    theme: '副業STEP4｜毎週1本ペースに乗せる', color: '#e76f51',
+    days: [0,3,6],
+    tasks: [
+      { text: '先週の記事の閲覧数・購入数を確認', freq: '週1回', days: [0] },
+      { text: '次の記事テーマを1つ決める', freq: '週1回', days: [0] },
+      { text: '競合note記事を1本読んで改善点メモ', freq: '週2回', days: [3,6] },
+    ]
+  },
+  {
+    theme: '副業サブ｜アプリ需要調査', color: '#f9c74f',
+    days: [2,5],
+    tasks: [
+      { text: '整体師SNSで「困った」投稿を5件見てメモ', freq: '週2回' },
+      { text: '「アプリで解決できそう」と思ったものを1行メモ', freq: '週2回' },
+      { text: 'メモ10件たまったら→アプリ開発スタート', freq: '週2回', note: '10件まではnoteを優先' },
+    ]
+  },
+  {
+    theme: 'SNS・マーケティング', color: '#ff6b9d',
+    days: [1,3,5],
+    tasks: [
+      { text: 'SNSに1投稿する（整体 or 副業 or 健康）', freq: '週3回' },
+      { text: 'フォロワーのコメントに返信する', freq: '週3回' },
+    ]
+  },
+  {
+    theme: '投資', color: '#90e0a0',
+    days: [1,5],
+    tasks: [
+      { text: '保有銘柄の週次チェック（5分）', freq: '週2回' },
+      { text: '積立設定が動いているか確認', freq: '週1回', days: [1] },
+    ]
+  },
+  {
+    theme: '健康・習慣', color: '#43d9c8',
+    days: 'daily',
+    tasks: [
+      { text: '7時間睡眠できたか確認', freq: '毎日' },
+      { text: '運動する（10分以上）', freq: '週3回', days: [1,3,5] },
+      { text: '依存行動の時間を記録する', freq: '毎日' },
+    ]
+  },
+  {
+    theme: '人間性', color: '#b5e48c',
+    days: [0],
+    tasks: [
+      { text: 'あっちゃんと過ごす時間を確保する', freq: '週1回（日曜）' },
+      { text: '今週の感謝を1つ言葉にして伝える', freq: '週1回' },
+      { text: '今週の振り返り：何を学んだか1行', freq: '週1回' },
+    ]
+  },
+];
+
+// ─────────────────────────────────────────────
+// DAILY STATE
+// ─────────────────────────────────────────────
+const DAILY_KEY = 'nomad_daily_v1';
+const WEEKLY_KEY = 'nomad_weekly_v1';
+const PROGRESS_KEY = 'nomad_progress_v1';
+
+function todayStr() { return TODAY.toISOString().slice(0,10); }
+
+let dailyChecked = (() => {
+  try {
+    const d = JSON.parse(localStorage.getItem(DAILY_KEY) || '{}');
+    return d.date === todayStr() ? (d.checked || {}) : {};
+  } catch(e) { return {}; }
+})();
+
+function saveDailyChecked() {
+  localStorage.setItem(DAILY_KEY, JSON.stringify({ date: todayStr(), checked: dailyChecked }));
+}
+
+let progressData = (() => {
+  try { return JSON.parse(localStorage.getItem(PROGRESS_KEY) || '{}'); } catch(e) { return {}; }
+})();
+
+function saveProgress() {
+  localStorage.setItem(PROGRESS_KEY, JSON.stringify(progressData));
+  updateGoalBar();
+}
+
+// ─────────────────────────────────────────────
+// DAILY RENDER
+// ─────────────────────────────────────────────
+function isVisible(task, secDays) {
+  const d = task.days || secDays;
+  if (d === 'daily') return true;
+  return d.includes(DOW);
+}
+
+function renderDaily() {
+  const container = document.getElementById('sections');
+  container.innerHTML = '';
+  let total = 0, done = 0;
+
+  SECTIONS.forEach((sec, si) => {
+    const visible = sec.tasks.filter(t => isVisible(t, sec.days));
+    if (!visible.length) return;
+
+    const secDone = visible.filter(t => dailyChecked[`${si}-${sec.tasks.indexOf(t)}`]);
+    total += visible.length;
+    done += secDone.length;
+    const allDone = secDone.length === visible.length;
+
+    const el = document.createElement('div');
+    el.className = 'section';
+    el.style.setProperty('--color', sec.color);
+    el.innerHTML = `
+      <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+        <span class="section-title">${allDone ? '✅ ' : ''}${sec.theme}</span>
+        <span class="section-badge">${secDone.length}/${visible.length}</span>
+      </div>
+      <div class="section-body">
+        ${visible.map(t => {
+          const ti = sec.tasks.indexOf(t);
+          const key = `${si}-${ti}`;
+          const isDone = !!dailyChecked[key];
+          const memo = taskMemos[key] || '';
+          const hasMemo = memo.length > 0;
+          return `
+          <div>
+            <div class="task-row${isDone?' done':''}" style="--color:${sec.color}">
+              <div class="checkbox" onclick="toggleDaily('${key}')"></div>
+              <div style="flex:1" onclick="toggleDaily('${key}')">
+                <div class="task-text">${t.text}</div>
+                <div class="task-meta">${t.freq}${t.note ? ' · ' + t.note : ''}</div>
+              </div>
+              <div class="task-note-btn${hasMemo?' has-memo':''}" onclick="toggleTaskMemo('${key}')" title="メモ">
+                ${hasMemo ? '📝' : '✏️'}
+              </div>
+            </div>
+            <div class="task-memo-area" id="memo-area-${key}">
+              <textarea class="task-memo-input" id="memo-input-${key}"
+                placeholder="メモ（気づき・詰まったこと・やり方など）"
+                onblur="saveTaskMemo('${key}')"
+              >${memo}</textarea>
+              <div class="task-memo-saved" id="memo-saved-${key}"></div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    container.appendChild(el);
+  });
+
+  document.getElementById('daily-progress-text').textContent = `${done} / ${total}`;
+  const pct = total > 0 ? done / total * 100 : 0;
+  document.getElementById('daily-fill').style.width = pct + '%';
+  document.getElementById('all-done').style.display = (total > 0 && done === total) ? 'block' : 'none';
+}
+
+const TASK_MEMO_KEY = 'nomad_task_memos_v1';
+
+let taskMemos = (() => {
+  try {
+    const d = JSON.parse(localStorage.getItem(TASK_MEMO_KEY) || '{}');
+    return d.date === todayStr() ? (d.memos || {}) : {};
+  } catch(e) { return {}; }
+})();
+
+function saveTaskMemos() {
+  localStorage.setItem(TASK_MEMO_KEY, JSON.stringify({ date: todayStr(), memos: taskMemos }));
+}
+
+function toggleTaskMemo(key) {
+  const area = document.getElementById(`memo-area-${key}`);
+  if (!area) return;
+  const isOpen = area.classList.toggle('open');
+  if (isOpen) {
+    const input = document.getElementById(`memo-input-${key}`);
+    if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+  }
+}
+
+function saveTaskMemo(key) {
+  const input = document.getElementById(`memo-input-${key}`);
+  if (!input) return;
+  const val = input.value.trim();
+  if (val) {
+    taskMemos[key] = val;
+  } else {
+    delete taskMemos[key];
+  }
+  saveTaskMemos();
+  // update icon without full re-render
+  const btn = input.closest('.task-memo-area')?.previousElementSibling?.querySelector('.task-note-btn');
+  if (btn) {
+    btn.textContent = val ? '📝' : '✏️';
+    btn.classList.toggle('has-memo', !!val);
+  }
+  if (val) {
+    const saved = document.getElementById(`memo-saved-${key}`);
+    if (saved) { saved.textContent = '保存しました'; setTimeout(() => { saved.textContent = ''; }, 1500); }
+  }
+}
+
+function toggleDaily(key) {
+  dailyChecked[key] = !dailyChecked[key];
+  saveDailyChecked();
+  renderDaily();
+}
+
+function resetToday() {
+  if (!confirm('今日のチェックをリセットしますか？')) return;
+  dailyChecked = {};
+  saveDailyChecked();
+  renderDaily();
+}
+
+// ─────────────────────────────────────────────
+// WEEKLY STATE
+// ─────────────────────────────────────────────
+let weekOffset = 0;
+
+function weekMonday(offset = 0) {
+  const d = new Date(TODAY);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + offset * 7);
+  return d.toISOString().slice(0,10);
+}
+
+function weekLabel(offset = 0) {
+  const mon = new Date(TODAY);
+  mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7) + offset * 7);
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  return `${mon.getMonth()+1}/${mon.getDate()} 〜 ${sun.getMonth()+1}/${sun.getDate()}`;
+}
+
+function wKey(offset) { return `${WEEKLY_KEY}_${weekMonday(offset)}`; }
+
+function loadWeeklyData(offset) {
+  try { return JSON.parse(localStorage.getItem(wKey(offset)) || '{}'); } catch(e) { return {}; }
+}
+
+function changeWeek(dir) {
+  weekOffset += dir;
+  document.getElementById('week-label').textContent = weekLabel(weekOffset);
+  renderWeekly();
+}
+
+function renderWeekly() {
+  const data = loadWeeklyData(weekOffset);
+  document.querySelectorAll('textarea[data-wkey]').forEach(el => {
+    el.value = data[el.dataset.wkey] || '';
+  });
+  document.querySelectorAll('input[data-wkey]').forEach(el => {
+    el.value = data[el.dataset.wkey] || '';
+  });
+  document.querySelectorAll('.check-row[data-ckey]').forEach(el => {
+    const isProgress = el.closest('#tab-progress');
+    if (isProgress) return;
+    el.classList.toggle('checked', !!(data['chk_' + el.dataset.ckey]));
+  });
+  updateMonthly();
+  renderHistory();
+}
+
+function saveWeekly() {
+  const data = loadWeeklyData(weekOffset);
+  document.querySelectorAll('textarea[data-wkey]').forEach(el => { data[el.dataset.wkey] = el.value; });
+  document.querySelectorAll('input[data-wkey]').forEach(el => { data[el.dataset.wkey] = el.value; });
+  document.querySelectorAll('#tab-weekly .check-row[data-ckey]').forEach(el => {
+    data['chk_' + el.dataset.ckey] = el.classList.contains('checked');
+  });
+  localStorage.setItem(wKey(weekOffset), JSON.stringify(data));
+  updateMonthly();
+  renderHistory();
+  updateGoalBar();
+  const t = document.getElementById('saved-toast');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function updateMonthly() {
+  let total = 0;
+  for (let i = -3; i <= 0; i++) {
+    const d = loadWeeklyData(i + weekOffset);
+    total += (parseInt(d.note_income)||0) + (parseInt(d.other_income)||0);
+  }
+  const target = 150000;
+  const pct = Math.min(100, total / target * 100);
+  document.getElementById('monthly-label').textContent = `${total.toLocaleString()}円 / 目標 ${target.toLocaleString()}円`;
+  document.getElementById('monthly-fill').style.width = pct + '%';
+}
+
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  list.innerHTML = '';
+  let hasAny = false;
+  for (let i = -8; i <= 0; i++) {
+    const d = loadWeeklyData(i + weekOffset);
+    const income = (parseInt(d.note_income)||0) + (parseInt(d.other_income)||0);
+    if (!Object.keys(d).length) continue;
+    hasAny = true;
+    const row = document.createElement('div');
+    row.className = 'history-row';
+    row.innerHTML = `
+      <span class="history-week">${weekLabel(i + weekOffset)}</span>
+      <span class="history-note">${(d.next_focus||'').slice(0,18)}</span>
+      <span class="history-income">${income.toLocaleString()}円</span>`;
+    list.prepend(row);
+  }
+  if (!hasAny) list.innerHTML = '<div style="color:#444;font-size:12px;text-align:center;padding:12px">記録がまだありません</div>';
+}
+
+// ─────────────────────────────────────────────
+// PROGRESS / PHASE
+// ─────────────────────────────────────────────
+function setPhase(n) {
+  progressData.phase = n;
+  saveProgress();
+  document.querySelectorAll('.phase-card').forEach(c => {
+    const p = parseInt(c.dataset.phase);
+    c.classList.remove('current','done');
+    if (p === n) c.classList.add('current');
+    else if (p < n) c.classList.add('done');
+  });
+}
+
+function updateGoalBar() {
+  const phase = progressData.phase || 1;
+  const milestones = ['p1_note','p1_income','p1_sns','p1_app','p1_habit','nomad_visa','nomad_tax','nomad_income','nomad_remote'];
+  const done = milestones.filter(k => progressData['chk_' + k]).length;
+  const pct = Math.round(done / milestones.length * 100);
+  document.getElementById('goal-fill').style.width = pct + '%';
+  document.getElementById('goal-pct').textContent = pct + '%';
+  const labels = ['Phase 1','Phase 2','Phase 3','ノマド達成'];
+  document.getElementById('goal-label-right').textContent = labels[phase - 1] || 'Phase 1';
+}
+
+function toggleCheck(row) {
+  row.classList.toggle('checked');
+  const isProgress = row.closest('#tab-progress');
+  if (isProgress) {
+    progressData['chk_' + row.dataset.ckey] = row.classList.contains('checked');
+    saveProgress();
+  }
+}
+
+function loadProgressChecks() {
+  document.querySelectorAll('#tab-progress .check-row[data-ckey]').forEach(el => {
+    el.classList.toggle('checked', !!(progressData['chk_' + el.dataset.ckey]));
+  });
+  setPhase(progressData.phase || 1);
+}
+
+// ─────────────────────────────────────────────
+// SUBTABS / TABS
+// ─────────────────────────────────────────────
+function switchSubtab(name) {
+  document.querySelectorAll('.subtab').forEach(t => t.classList.toggle('active', t.textContent === {reflect:'振り返り',income:'収益記録',nextstep:'来週の一手'}[name]));
+  document.querySelectorAll('.subtab-content').forEach(el => el.classList.toggle('active', el.id === `subtab-${name}`));
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.toggle('active', el.id === `tab-${name}`));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.tab === name));
+  const showFab = name === 'weekly' || name === 'progress';
+  document.getElementById('save-fab').classList.toggle('show', showFab);
+  if (name === 'weekly') renderWeekly();
+  if (name === 'progress') loadProgressChecks();
+  window.scrollTo(0, 0);
+}
+
+// ─────────────────────────────────────────────
+// MEMO: TOGGLE
+// ─────────────────────────────────────────────
+function toggleMemo(name) {
+  const body = document.getElementById(`memo-body-${name}`);
+  body.classList.toggle('open');
+}
+
+// ─────────────────────────────────────────────
+// MEMO: SLEEP
+// ─────────────────────────────────────────────
+const SLEEP_KEY = 'nomad_sleep_v1';
+
+function loadSleepData() {
+  try { return JSON.parse(localStorage.getItem(SLEEP_KEY) || '{}'); } catch(e) { return {}; }
+}
+
+function calcSleepHours(bed, wake) {
+  if (!bed || !wake) return null;
+  const [bh, bm] = bed.split(':').map(Number);
+  const [wh, wm] = wake.split(':').map(Number);
+  let mins = (wh * 60 + wm) - (bh * 60 + bm);
+  if (mins < 0) mins += 24 * 60;
+  return mins;
+}
+
+function updateSleepDuration() {
+  const bed = document.getElementById('sleep-bedtime').value;
+  const wake = document.getElementById('sleep-waketime').value;
+  const mins = calcSleepHours(bed, wake);
+  const el = document.getElementById('sleep-duration');
+  if (mins === null) { el.textContent = '—'; return; }
+  const h = Math.floor(mins / 60), m = mins % 60;
+  el.textContent = `${h}h${m > 0 ? m + 'm' : ''}`;
+  el.style.color = mins >= 420 ? 'var(--green)' : mins >= 360 ? 'var(--yellow)' : 'var(--pink)';
+}
+
+let sleepQuality = 0;
+function setSleepQuality(q) {
+  sleepQuality = q;
+  document.querySelectorAll('.quality-btn').forEach(b => {
+    b.classList.toggle('selected', parseInt(b.dataset.q) === q);
+  });
+}
+
+function saveSleep() {
+  const bed = document.getElementById('sleep-bedtime').value;
+  const wake = document.getElementById('sleep-waketime').value;
+  const mins = calcSleepHours(bed, wake);
+  const data = loadSleepData();
+  data[todayStr()] = { bed, wake, mins, quality: sleepQuality };
+  localStorage.setItem(SLEEP_KEY, JSON.stringify(data));
+
+  const h = mins !== null ? Math.floor(mins/60) : 0;
+  const m = mins !== null ? mins%60 : 0;
+  const qLabels = ['','😴','😐','😊','🌟'];
+  const preview = mins !== null
+    ? `${h}h${m>0?m+'m':''} ${qLabels[sleepQuality]||''}`
+    : '保存しました';
+  document.getElementById('sleep-preview').textContent = preview;
+  document.getElementById('memo-body-sleep').classList.remove('open');
+}
+
+function initSleep() {
+  const data = loadSleepData();
+  const today = data[todayStr()];
+  if (today) {
+    document.getElementById('sleep-bedtime').value = today.bed || '';
+    document.getElementById('sleep-waketime').value = today.wake || '';
+    if (today.quality) setSleepQuality(today.quality);
+    const mins = today.mins;
+    if (mins) {
+      const h = Math.floor(mins/60), m = mins%60;
+      const qLabels = ['','😴','😐','😊','🌟'];
+      document.getElementById('sleep-preview').textContent = `${h}h${m>0?m+'m':''} ${qLabels[today.quality]||''}`;
+    }
+  }
+  document.getElementById('sleep-bedtime').addEventListener('change', updateSleepDuration);
+  document.getElementById('sleep-waketime').addEventListener('change', updateSleepDuration);
+  updateSleepDuration();
+}
+
+// ─────────────────────────────────────────────
+// MEMO: DEPEND
+// ─────────────────────────────────────────────
+const DEPEND_KEY = 'nomad_depend_v1';
+let dependItems = [];
+
+function loadDependData() {
+  try {
+    const d = JSON.parse(localStorage.getItem(DEPEND_KEY) || '{}');
+    return d[todayStr()] || [];
+  } catch(e) { return []; }
+}
+
+function saveDependData(items) {
+  try {
+    const all = JSON.parse(localStorage.getItem(DEPEND_KEY) || '{}');
+    all[todayStr()] = items;
+    localStorage.setItem(DEPEND_KEY, JSON.stringify(all));
+  } catch(e) {}
+}
+
+function renderDependItems() {
+  const el = document.getElementById('depend-items');
+  if (!dependItems.length) { el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:6px 0">まだ記録なし</div>'; return; }
+  el.innerHTML = dependItems.map((item, i) => `
+    <div class="depend-item">
+      <span class="depend-item-name">${item.name}</span>
+      <div class="depend-item-right">
+        <span class="depend-item-time">${item.mins}分</span>
+        <span class="depend-del" onclick="removeDepend(${i})">✕</span>
+      </div>
+    </div>`).join('');
+  const total = dependItems.reduce((s, x) => s + x.mins, 0);
+  const preview = `${dependItems.map(x=>x.name).join('・')} 計${total}分`;
+  document.getElementById('depend-preview').textContent = preview;
+}
+
+function addDepend() {
+  const name = document.getElementById('depend-input').value.trim();
+  const mins = parseInt(document.getElementById('depend-time-input').value) || 0;
+  if (!name) return;
+  dependItems.push({ name, mins });
+  document.getElementById('depend-input').value = '';
+  document.getElementById('depend-time-input').value = '';
+  renderDependItems();
+}
+
+function removeDepend(i) {
+  dependItems.splice(i, 1);
+  renderDependItems();
+}
+
+function saveDepend() {
+  saveDependData(dependItems);
+  document.getElementById('memo-body-depend').classList.remove('open');
+}
+
+function initDepend() {
+  dependItems = loadDependData();
+  renderDependItems();
+  document.getElementById('depend-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('depend-time-input').focus();
+  });
+  document.getElementById('depend-time-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addDepend();
+  });
+}
+
+// ─────────────────────────────────────────────
+// MEMO: TROUBLE
+// ─────────────────────────────────────────────
+const TROUBLE_KEY = 'nomad_trouble_v1';
+
+function loadTroubleList() {
+  try { return JSON.parse(localStorage.getItem(TROUBLE_KEY) || '[]'); } catch(e) { return []; }
+}
+
+function renderTroubleHistory() {
+  const list = loadTroubleList();
+  const el = document.getElementById('trouble-history');
+  if (!list.length) { el.innerHTML = ''; return; }
+  el.innerHTML = list.slice().reverse().slice(0, 10).map(entry => `
+    <div class="trouble-entry">
+      <span class="trouble-entry-text">${entry.text}</span>
+      <span class="trouble-entry-date">${entry.date}</span>
+    </div>`).join('');
+  document.getElementById('trouble-preview').textContent = list[list.length-1].text.slice(0,20) + '…';
+}
+
+function saveTrouble() {
+  const text = document.getElementById('trouble-text').value.trim();
+  if (!text) return;
+  const list = loadTroubleList();
+  list.push({ text, date: todayStr() });
+  localStorage.setItem(TROUBLE_KEY, JSON.stringify(list));
+  document.getElementById('trouble-text').value = '';
+  renderTroubleHistory();
+  document.getElementById('memo-body-trouble').classList.remove('open');
+}
+
+function initTrouble() {
+  renderTroubleHistory();
+  document.getElementById('trouble-text').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.metaKey) saveTrouble();
+  });
+}
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+const days = ['日','月','火','水','木','金','土'];
+document.getElementById('date-text').textContent = `${TODAY.getMonth()+1}/${TODAY.getDate()}（${days[DOW]}）`;
+document.getElementById('week-label').textContent = weekLabel(0);
+
+renderDaily();
+updateGoalBar();
+initSleep();
+initDepend();
+initTrouble();
+</script>
+</body>
+</html>
