@@ -623,11 +623,11 @@ textarea.answer:focus { border-color: #4a4a8a; }
       <div class="milestone-title">Phase 1 達成条件</div>
       <div class="card">
         <div class="checklist">
-          <div class="check-row" data-ckey="p1_note" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">noteを3本以上公開</div></div>
+          <div class="check-row" data-ckey="p1_note" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">カルテアプリを自院以外でも使える状態にした</div></div>
           <div class="check-row" data-ckey="p1_income" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">副業収益が月5万を超えた</div></div>
-          <div class="check-row" data-ckey="p1_sns" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">SNSフォロワー500人以上</div></div>
-          <div class="check-row" data-ckey="p1_app" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">アプリ調査10件完了 or リリース済</div></div>
-          <div class="check-row" data-ckey="p1_habit" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">副業30分/日を1ヶ月継続</div></div>
+          <div class="check-row" data-ckey="p1_sns" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">仕事用SNSアカウントを作ってフォロワー200人以上</div></div>
+          <div class="check-row" data-ckey="p1_app" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">1社以上に試験導入・デモをしてもらった</div></div>
+          <div class="check-row" data-ckey="p1_habit" onclick="toggleCheck(this)"><div class="check-box">✓</div><div class="check-label">アプリ作業30分/日を1ヶ月継続できた</div></div>
         </div>
       </div>
     </div>
@@ -727,6 +727,7 @@ const TODAY = new Date();
 const DOW = TODAY.getDay();
 
 const SECTIONS = [
+  // ── 本業 ──────────────────────────────────────
   {
     theme: '整体（本業）', color: '#4cc9f0',
     days: [1,2,3,4,5,6],
@@ -736,63 +737,67 @@ const SECTIONS = [
       { text: 'オステオパシー関連を10分読む', freq: '週3回', days: [1,3,5] },
     ]
   },
+
+  // ── カルテアプリ（副業メイン）────────────────
   {
-    theme: '副業STEP1｜誰に何を売るか決める', color: '#f4a261',
+    theme: 'カルテアプリ｜音声入力の精度を上げる', color: '#f4a261',
     days: [1,2,3],
     tasks: [
-      { text: '整体師仲間の「困っていること」を3つ書き出す', freq: '月曜', days: [1] },
-      { text: '自分が解決できる悩みに○をつける', freq: '月曜', days: [1] },
-      { text: '「誰に」「何を」「なぜ買うか」を1文で書く', freq: '火曜', days: [2] },
-      { text: 'noteで競合記事を3本読んで価格帯メモ', freq: '水曜', days: [3] },
+      { text: '実際に使って音声認識のズレを3箇所メモする', freq: '月曜', days: [1] },
+      { text: 'メモしたズレを1つ修正する', freq: '火曜', days: [2] },
+      { text: '修正した箇所を自院で試して結果をメモ', freq: '水曜', days: [3] },
     ]
   },
   {
-    theme: '副業STEP2｜note記事を1本書く', color: '#f4a261',
-    days: [4,5,6,0],
+    theme: 'カルテアプリ｜UIの見やすさを改善する', color: '#f4a261',
+    days: [4,5],
     tasks: [
-      { text: 'タイトルを3パターン書いて1つ選ぶ', freq: '木曜', days: [4] },
-      { text: '見出し（構成）を5つ作る', freq: '木曜', days: [4] },
-      { text: '本文を1見出し分だけ書く（500字）', freq: '金〜土', days: [5,6] },
-      { text: '全文を書き終える', freq: '土〜日', days: [6,0] },
+      { text: '「ここ見づらい」と感じた画面を1つスクショ', freq: '木曜', days: [4] },
+      { text: 'スクショの改善案をメモ or 直接修正する', freq: '金曜', days: [5] },
     ]
   },
   {
-    theme: '副業STEP3｜公開して告知する', color: '#e76f51',
-    days: [1,2,3],
+    theme: 'カルテアプリ｜汎用化・営業準備', color: '#e76f51',
+    days: [6,0],
     tasks: [
-      { text: 'アイキャッチ画像をCanvaで作る（30分）', freq: '月曜', days: [1] },
-      { text: 'noteに投稿する', freq: '月曜', days: [1] },
-      { text: 'SNSで「書いた理由」を投稿する', freq: '月〜火', days: [1,2] },
-      { text: '整体師の知人に直接シェア（1人でいい）', freq: '火曜', days: [2] },
-      { text: '反応・閲覧数をメモして振り返る', freq: '水曜', days: [3] },
+      { text: '自院専用の部分をリストアップする', freq: '土曜', days: [6] },
+      { text: 'リストの中から汎用化できる項目を1つ対応する', freq: '土曜', days: [6] },
+      { text: '興味ありそうな会社・院に送るデモ動画を撮る準備', freq: '日曜', days: [0] },
+      { text: '「使ってみませんか」と声かけできる人を1人考える', freq: '日曜', days: [0] },
     ]
   },
+
+  // ── SNS（集客・営業ツール）───────────────────
   {
-    theme: '副業STEP4｜毎週1本ペースに乗せる', color: '#e76f51',
-    days: [0,3,6],
-    tasks: [
-      { text: '先週の記事の閲覧数・購入数を確認', freq: '週1回', days: [0] },
-      { text: '次の記事テーマを1つ決める', freq: '週1回', days: [0] },
-      { text: '競合note記事を1本読んで改善点メモ', freq: '週2回', days: [3,6] },
-    ]
-  },
-  {
-    theme: '副業サブ｜アプリ需要調査', color: '#f9c74f',
-    days: [2,5],
-    tasks: [
-      { text: '整体師SNSで「困った」投稿を5件見てメモ', freq: '週2回' },
-      { text: '「アプリで解決できそう」と思ったものを1行メモ', freq: '週2回' },
-      { text: 'メモ10件たまったら→アプリ開発スタート', freq: '週2回', note: '10件まではnoteを優先' },
-    ]
-  },
-  {
-    theme: 'SNS・マーケティング', color: '#ff6b9d',
+    theme: 'SNS｜仕事用アカウントを育てる', color: '#ff6b9d',
     days: [1,3,5],
     tasks: [
-      { text: 'SNSに1投稿する（整体 or 副業 or 健康）', freq: '週3回' },
-      { text: 'フォロワーのコメントに返信する', freq: '週3回' },
+      { text: 'アプリ開発の進捗を1投稿する（作業メモでOK）', freq: '週3回' },
+      { text: '整体師・治療院向けアカウントをフォローする（3件）', freq: '週3回', days: [1] },
+      { text: 'コメント・反応に返信する', freq: '週3回' },
     ]
   },
+  {
+    theme: 'SNS｜アカウント立ち上げ（最初の1ヶ月）', color: '#ff6b9d',
+    days: [0],
+    tasks: [
+      { text: '今週の投稿で一番反応よかったものをメモ', freq: '週1回' },
+      { text: '来週投稿するネタを3つ考えておく', freq: '週1回' },
+      { text: 'フォロワー数・インプレッションを記録する', freq: '週1回' },
+    ]
+  },
+
+  // ── note（SNSの補助）─────────────────────────
+  {
+    theme: 'note｜SNSの深掘りコンテンツ', color: '#f9c74f',
+    days: [3,6],
+    tasks: [
+      { text: 'SNSで反応よかった投稿をnote記事にする計画を立てる', freq: '週1回', days: [3] },
+      { text: 'note記事を1本書く or 下書きを進める', freq: '週1回', days: [6] },
+    ]
+  },
+
+  // ── 投資・健康・人間性 ────────────────────────
   {
     theme: '投資', color: '#90e0a0',
     days: [1,5],
