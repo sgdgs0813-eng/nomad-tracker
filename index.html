@@ -681,6 +681,42 @@ textarea.answer:focus { border-color: #4a4a8a; }
     <div style="height:16px"></div>
   </div>
 
+  <!-- TAB: SETTINGS -->
+  <div class="tab-content" id="tab-settings">
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title">🔔 リマインド通知</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+        毎日指定した時間にアプリを開くよう通知します。<br>
+        ※iPhoneはホーム画面に追加してから設定してください。
+      </p>
+      <div id="notif-status" style="font-size:12px;padding:8px 12px;border-radius:8px;background:var(--surface2);margin-bottom:14px;color:var(--muted)">
+        通知の状態を確認中...
+      </div>
+      <button id="notif-permission-btn" onclick="requestNotifPermission()" style="display:none;width:100%;padding:12px;background:var(--accent);color:#000;border:none;border-radius:10px;font-size:14px;font-weight:bold;cursor:pointer;margin-bottom:16px">
+        🔔 通知を許可する
+      </button>
+    </div>
+
+    <div class="card" id="notif-settings-card">
+      <div class="card-title">⏰ 通知時間の設定</div>
+      <div id="reminder-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
+      <button onclick="addReminder()" style="width:100%;padding:12px;background:var(--surface2);border:1px dashed var(--border);border-radius:10px;color:var(--muted);font-size:14px;cursor:pointer">
+        ＋ 通知時間を追加
+      </button>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="card-title">📱 iPhoneで使うには</div>
+      <ol style="font-size:12px;color:var(--muted);line-height:2;padding-left:16px">
+        <li>Safariでこのページを開く</li>
+        <li>下の共有ボタン → 「ホーム画面に追加」</li>
+        <li>ホーム画面のアイコンから開き直す</li>
+        <li>この通知設定をする</li>
+      </ol>
+    </div>
+    <div style="height:16px"></div>
+  </div>
+
 </div><!-- /main -->
 
 <!-- BOTTOM NAV -->
@@ -702,41 +738,6 @@ textarea.answer:focus { border-color: #4a4a8a; }
     <div>通知</div>
   </div>
 </nav>
-
-<!-- 通知設定モーダル -->
-<div class="tab-content" id="tab-settings">
-  <div class="card" style="margin-bottom:12px">
-    <div class="card-title">🔔 リマインド通知</div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6">
-      毎日指定した時間にアプリを開くよう通知します。<br>
-      ※iPhoneはホーム画面に追加してから設定してください。
-    </p>
-    <div id="notif-status" style="font-size:12px;padding:8px 12px;border-radius:8px;background:var(--surface2);margin-bottom:14px;color:var(--muted)">
-      通知の状態を確認中...
-    </div>
-    <button id="notif-permission-btn" onclick="requestNotifPermission()" style="display:none;width:100%;padding:12px;background:var(--accent);color:#000;border:none;border-radius:10px;font-size:14px;font-weight:bold;cursor:pointer;margin-bottom:16px">
-      🔔 通知を許可する
-    </button>
-  </div>
-
-  <div class="card" id="notif-settings-card">
-    <div class="card-title">⏰ 通知時間の設定</div>
-    <div id="reminder-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
-    <button onclick="addReminder()" style="width:100%;padding:10px;background:var(--surface2);border:1px dashed var(--border);border-radius:10px;color:var(--muted);font-size:13px;cursor:pointer">
-      ＋ 通知時間を追加
-    </button>
-  </div>
-
-  <div class="card" style="margin-top:12px">
-    <div class="card-title">📱 iPhoneで使うには</div>
-    <ol style="font-size:12px;color:var(--muted);line-height:2;padding-left:16px">
-      <li>Safariでこのページを開く</li>
-      <li>下の共有ボタン → 「ホーム画面に追加」</li>
-      <li>ホーム画面のアイコンから開き直す</li>
-      <li>この通知設定をする</li>
-    </ol>
-  </div>
-</div>
 
 <!-- Save FAB (weekly / progress only) -->
 <button class="save-fab" id="save-fab" onclick="saveWeekly()">💾</button>
