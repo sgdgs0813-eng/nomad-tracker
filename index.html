@@ -109,6 +109,21 @@ body {
 }
 
 /* ── DAILY TASKS ── */
+.daily-date-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px; background: var(--surface); border-radius: 10px;
+  padding: 8px 12px;
+}
+.daily-date-nav-btn {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--muted); padding: 5px 14px; border-radius: 8px;
+  cursor: pointer; font-size: 16px; line-height: 1;
+}
+.daily-date-nav-btn:active { opacity: 0.6; }
+.daily-date-nav-btn.disabled { opacity: 0.2; pointer-events: none; }
+.daily-date-label { font-size: 13px; font-weight: bold; color: var(--text); text-align: center; }
+.daily-date-sub { font-size: 10px; color: var(--muted); text-align: center; }
+
 .daily-progress-wrap { margin-bottom: 10px; }
 .daily-progress-label {
   display: flex; justify-content: space-between;
@@ -490,9 +505,20 @@ textarea.answer:focus { border-color: #4a4a8a; }
 
   <!-- TAB: DAILY -->
   <div class="tab-content active" id="tab-daily">
+
+    <!-- 日付ナビ -->
+    <div class="daily-date-nav">
+      <button class="daily-date-nav-btn" onclick="changeDailyOffset(-1)">◀</button>
+      <div>
+        <div class="daily-date-label" id="daily-date-label"></div>
+        <div class="daily-date-sub" id="daily-date-sub"></div>
+      </div>
+      <button class="daily-date-nav-btn disabled" id="daily-next-btn" onclick="changeDailyOffset(1)">▶</button>
+    </div>
+
     <div class="daily-progress-wrap">
       <div class="daily-progress-label">
-        <span>今日の進捗</span>
+        <span id="daily-progress-label-text">今日の進捗</span>
         <span id="daily-progress-text">0 / 0</span>
       </div>
       <div class="daily-bar"><div class="daily-fill" id="daily-fill" style="width:0%"></div></div>
@@ -500,7 +526,7 @@ textarea.answer:focus { border-color: #4a4a8a; }
     <div class="all-done-card" id="all-done">🎉 今日のタスク全部完了！最高！</div>
 
     <div id="sections"></div>
-    <div class="reset-link" onclick="resetToday()">今日のチェックをリセット</div>
+    <div class="reset-link" onclick="resetToday()">この日のチェックをリセット</div>
   </div>
 
   <!-- TAB: WEEKLY -->
@@ -779,11 +805,11 @@ async function syncFromSupabase() {
 
   // daily checks
   const daily = await sbGet(`daily_${todayKey}`);
-  if (daily) { dailyChecked = daily; saveDailyCheckedLocal(); renderDaily(); }
+  if (daily) { dailyCheckedCache[todayKey] = daily; if (viewDayStr() === todayKey) { dailyChecked = daily; renderDaily(); } }
 
   // task memos
   const memos = await sbGet(`memos_${todayKey}`);
-  if (memos) { taskMemos = memos; saveTaskMemosLocal(); renderDaily(); }
+  if (memos) { taskMemosCache[todayKey] = memos; if (viewDayStr() === todayKey) { taskMemos = memos; renderDaily(); } }
 
   // progress
   const prog = await sbGet('progress');
@@ -799,6 +825,49 @@ async function syncFromSupabase() {
 // ─────────────────────────────────────────────
 const TODAY = new Date();
 const DOW = TODAY.getDay();
+
+// ── 日付オフセット（0=今日、-1=昨日...）──────────
+let dailyOffset = 0;
+
+function viewDate() {
+  const d = new Date(TODAY);
+  d.setDate(d.getDate() + dailyOffset);
+  return d;
+}
+
+function viewDayStr() {
+  return viewDate().toISOString().slice(0, 10);
+}
+
+function viewDOW() {
+  return viewDate().getDay();
+}
+
+function changeDailyOffset(dir) {
+  const next = dailyOffset + dir;
+  if (next > 0) return; // 未来には行けない
+  dailyOffset = next;
+  loadDailyForCurrentDate();
+  renderDaily();
+  updateDailyDateNav();
+}
+
+function updateDailyDateNav() {
+  const d = viewDate();
+  const dayNames = ['日','月','火','水','木','金','土'];
+  const isToday = dailyOffset === 0;
+  const label = isToday
+    ? `今日 ${d.getMonth()+1}/${d.getDate()}（${dayNames[d.getDay()]}）`
+    : `${d.getMonth()+1}/${d.getDate()}（${dayNames[d.getDay()]}）`;
+  const sub = isToday ? '' : `${Math.abs(dailyOffset)}日前`;
+
+  document.getElementById('daily-date-label').textContent = label;
+  document.getElementById('daily-date-sub').textContent = sub;
+  document.getElementById('daily-progress-label-text').textContent = isToday ? '今日の進捗' : 'この日の進捗';
+
+  const nextBtn = document.getElementById('daily-next-btn');
+  nextBtn.classList.toggle('disabled', isToday);
+}
 
 const SECTIONS = [
   // ── 本業 ──────────────────────────────────────
@@ -909,19 +978,38 @@ const PROGRESS_KEY = 'nomad_progress_v1';
 
 function todayStr() { return TODAY.toISOString().slice(0,10); }
 
-let dailyChecked = (() => {
-  try {
-    const d = JSON.parse(localStorage.getItem(DAILY_KEY) || '{}');
-    return d.date === todayStr() ? (d.checked || {}) : {};
-  } catch(e) { return {}; }
-})();
+// dailyChecked はビュー日付ごとにキャッシュ
+const dailyCheckedCache = {};
+const taskMemosCache = {};
+
+function loadDailyForCurrentDate() {
+  const key = viewDayStr();
+  if (!dailyCheckedCache[key]) {
+    try {
+      const raw = localStorage.getItem(`${DAILY_KEY}_${key}`);
+      dailyCheckedCache[key] = raw ? JSON.parse(raw) : {};
+    } catch(e) { dailyCheckedCache[key] = {}; }
+  }
+  if (!taskMemosCache[key]) {
+    try {
+      const raw = localStorage.getItem(`${TASK_MEMO_KEY}_${key}`);
+      taskMemosCache[key] = raw ? JSON.parse(raw) : {};
+    } catch(e) { taskMemosCache[key] = {}; }
+  }
+  dailyChecked = dailyCheckedCache[key];
+  taskMemos = taskMemosCache[key];
+}
+
+let dailyChecked = {};
 
 function saveDailyCheckedLocal() {
-  localStorage.setItem(DAILY_KEY, JSON.stringify({ date: todayStr(), checked: dailyChecked }));
+  const key = viewDayStr();
+  dailyCheckedCache[key] = dailyChecked;
+  localStorage.setItem(`${DAILY_KEY}_${key}`, JSON.stringify(dailyChecked));
 }
 function saveDailyChecked() {
   saveDailyCheckedLocal();
-  sbSet(`daily_${todayStr()}`, dailyChecked);
+  sbSet(`daily_${viewDayStr()}`, dailyChecked);
 }
 
 let progressData = (() => {
@@ -943,7 +1031,7 @@ function saveProgress() {
 function isVisible(task, secDays) {
   const d = task.days || secDays;
   if (d === 'daily') return true;
-  return d.includes(DOW);
+  return d.includes(viewDOW());
 }
 
 function renderDaily() {
@@ -1008,19 +1096,16 @@ function renderDaily() {
 
 const TASK_MEMO_KEY = 'nomad_task_memos_v1';
 
-let taskMemos = (() => {
-  try {
-    const d = JSON.parse(localStorage.getItem(TASK_MEMO_KEY) || '{}');
-    return d.date === todayStr() ? (d.memos || {}) : {};
-  } catch(e) { return {}; }
-})();
+let taskMemos = {};
 
 function saveTaskMemosLocal() {
-  localStorage.setItem(TASK_MEMO_KEY, JSON.stringify({ date: todayStr(), memos: taskMemos }));
+  const key = viewDayStr();
+  taskMemosCache[key] = taskMemos;
+  localStorage.setItem(`${TASK_MEMO_KEY}_${key}`, JSON.stringify(taskMemos));
 }
 function saveTaskMemos() {
   saveTaskMemosLocal();
-  sbSet(`memos_${todayStr()}`, taskMemos);
+  sbSet(`memos_${viewDayStr()}`, taskMemos);
 }
 
 function toggleTaskMemo(key) {
@@ -1420,6 +1505,8 @@ const days = ['日','月','火','水','木','金','土'];
 document.getElementById('date-text').textContent = `${TODAY.getMonth()+1}/${TODAY.getDate()}（${days[DOW]}）`;
 document.getElementById('week-label').textContent = weekLabel(0);
 
+loadDailyForCurrentDate();
+updateDailyDateNav();
 renderDaily();
 updateGoalBar();
 initSleep();
