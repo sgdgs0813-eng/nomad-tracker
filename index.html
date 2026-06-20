@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>ノマド達成トラッカー</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ノマド">
 <style>
 :root {
   --bg: #0f0f1a;
@@ -317,6 +321,36 @@ textarea.answer:focus { border-color: #4a4a8a; }
   display: none;
 }
 .save-fab.show { display: flex; align-items: center; justify-content: center; }
+
+.reminder-row {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface2); border-radius: 10px; padding: 10px 12px;
+}
+.reminder-time {
+  flex: 1; background: transparent; border: none;
+  color: var(--accent); font-size: 20px; font-weight: bold;
+  font-family: inherit; outline: none;
+}
+.reminder-label {
+  flex: 1.5; background: transparent; border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text); font-size: 13px; font-family: inherit;
+  outline: none; padding: 2px 0;
+}
+.reminder-del {
+  color: var(--muted); font-size: 18px; cursor: pointer; padding: 4px;
+}
+.reminder-toggle {
+  width: 42px; height: 24px; background: var(--border); border-radius: 12px;
+  position: relative; cursor: pointer; transition: background 0.2s; flex-shrink: 0;
+}
+.reminder-toggle.on { background: var(--accent); }
+.reminder-toggle::after {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 18px; height: 18px; background: #fff; border-radius: 50%;
+  transition: transform 0.2s;
+}
+.reminder-toggle.on::after { transform: translateX(18px); }
 
 .saved-toast {
   position: fixed; bottom: calc(var(--tab-height) + env(safe-area-inset-bottom) + 14px);
@@ -663,7 +697,46 @@ textarea.answer:focus { border-color: #4a4a8a; }
     <div class="nav-icon">🗺</div>
     <div>進捗</div>
   </div>
+  <div class="nav-item" data-tab="settings" onclick="switchTab('settings')">
+    <div class="nav-icon">🔔</div>
+    <div>通知</div>
+  </div>
 </nav>
+
+<!-- 通知設定モーダル -->
+<div class="tab-content" id="tab-settings">
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title">🔔 リマインド通知</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+      毎日指定した時間にアプリを開くよう通知します。<br>
+      ※iPhoneはホーム画面に追加してから設定してください。
+    </p>
+    <div id="notif-status" style="font-size:12px;padding:8px 12px;border-radius:8px;background:var(--surface2);margin-bottom:14px;color:var(--muted)">
+      通知の状態を確認中...
+    </div>
+    <button id="notif-permission-btn" onclick="requestNotifPermission()" style="display:none;width:100%;padding:12px;background:var(--accent);color:#000;border:none;border-radius:10px;font-size:14px;font-weight:bold;cursor:pointer;margin-bottom:16px">
+      🔔 通知を許可する
+    </button>
+  </div>
+
+  <div class="card" id="notif-settings-card">
+    <div class="card-title">⏰ 通知時間の設定</div>
+    <div id="reminder-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
+    <button onclick="addReminder()" style="width:100%;padding:10px;background:var(--surface2);border:1px dashed var(--border);border-radius:10px;color:var(--muted);font-size:13px;cursor:pointer">
+      ＋ 通知時間を追加
+    </button>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="card-title">📱 iPhoneで使うには</div>
+    <ol style="font-size:12px;color:var(--muted);line-height:2;padding-left:16px">
+      <li>Safariでこのページを開く</li>
+      <li>下の共有ボタン → 「ホーム画面に追加」</li>
+      <li>ホーム画面のアイコンから開き直す</li>
+      <li>この通知設定をする</li>
+    </ol>
+  </div>
+</div>
 
 <!-- Save FAB (weekly / progress only) -->
 <button class="save-fab" id="save-fab" onclick="saveWeekly()">💾</button>
@@ -1146,6 +1219,7 @@ function switchTab(name) {
   document.getElementById('save-fab').classList.toggle('show', showFab);
   if (name === 'weekly') renderWeekly();
   if (name === 'progress') loadProgressChecks();
+  if (name === 'settings') { updateNotifStatus(); renderReminderList(); }
   window.scrollTo(0, 0);
 }
 
@@ -1351,6 +1425,132 @@ initSleep();
 initDepend();
 initTrouble();
 syncFromSupabase();
+initNotifications();
+
+// ─────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────
+const REMINDER_KEY = 'nomad_reminders_v1';
+let swRegistration = null;
+
+function loadReminders() {
+  try { return JSON.parse(localStorage.getItem(REMINDER_KEY) || '[]'); } catch(e) { return []; }
+}
+function saveReminders(list) {
+  localStorage.setItem(REMINDER_KEY, JSON.stringify(list));
+}
+
+async function initNotifications() {
+  // Service Worker 登録
+  if ('serviceWorker' in navigator) {
+    try {
+      swRegistration = await navigator.serviceWorker.register('/sw.js');
+    } catch(e) {}
+  }
+  updateNotifStatus();
+  renderReminderList();
+}
+
+function updateNotifStatus() {
+  const el = document.getElementById('notif-status');
+  const btn = document.getElementById('notif-permission-btn');
+  if (!el) return;
+  if (!('Notification' in window)) {
+    el.textContent = '❌ このブラウザは通知に対応していません';
+    el.style.color = 'var(--pink)';
+    return;
+  }
+  const perm = Notification.permission;
+  if (perm === 'granted') {
+    el.textContent = '✅ 通知が有効です';
+    el.style.color = 'var(--green)';
+    btn.style.display = 'none';
+  } else if (perm === 'denied') {
+    el.textContent = '🚫 通知がブロックされています。設定アプリから許可してください';
+    el.style.color = 'var(--pink)';
+    btn.style.display = 'none';
+  } else {
+    el.textContent = '⚠️ 通知が許可されていません';
+    el.style.color = 'var(--yellow)';
+    btn.style.display = 'block';
+  }
+}
+
+async function requestNotifPermission() {
+  const result = await Notification.requestPermission();
+  updateNotifStatus();
+  if (result === 'granted') sendScheduleToSW();
+}
+
+function addReminder() {
+  const list = loadReminders();
+  list.push({ hour: 7, minute: 0, label: '今日のタスクを確認しよう！', on: true });
+  saveReminders(list);
+  renderReminderList();
+  sendScheduleToSW();
+}
+
+function removeReminder(i) {
+  const list = loadReminders();
+  list.splice(i, 1);
+  saveReminders(list);
+  renderReminderList();
+  sendScheduleToSW();
+}
+
+function toggleReminder(i) {
+  const list = loadReminders();
+  list[i].on = !list[i].on;
+  saveReminders(list);
+  renderReminderList();
+  sendScheduleToSW();
+}
+
+function updateReminderField(i, field, value) {
+  const list = loadReminders();
+  if (field === 'time') {
+    const [h, m] = value.split(':').map(Number);
+    list[i].hour = h; list[i].minute = m;
+  } else {
+    list[i][field] = value;
+  }
+  saveReminders(list);
+  sendScheduleToSW();
+}
+
+function renderReminderList() {
+  const el = document.getElementById('reminder-list');
+  if (!el) return;
+  const list = loadReminders();
+  if (!list.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:8px">まだ設定がありません</div>';
+    return;
+  }
+  el.innerHTML = list.map((r, i) => {
+    const hh = String(r.hour).padStart(2,'0');
+    const mm = String(r.minute).padStart(2,'0');
+    return `
+    <div class="reminder-row">
+      <input class="reminder-time" type="time" value="${hh}:${mm}"
+        onchange="updateReminderField(${i},'time',this.value)">
+      <input class="reminder-label" type="text" value="${r.label}"
+        placeholder="通知メッセージ"
+        onchange="updateReminderField(${i},'label',this.value)">
+      <div class="reminder-toggle ${r.on?'on':''}" onclick="toggleReminder(${i})"></div>
+      <div class="reminder-del" onclick="removeReminder(${i})">✕</div>
+    </div>`;
+  }).join('');
+}
+
+function sendScheduleToSW() {
+  if (!swRegistration || !swRegistration.active) return;
+  if (Notification.permission !== 'granted') return;
+  const list = loadReminders().filter(r => r.on);
+  swRegistration.active.postMessage({
+    type: 'SCHEDULE_NOTIFICATIONS',
+    reminders: list.map(r => ({ hour: r.hour, minute: r.minute, label: r.label }))
+  });
+}
 </script>
 </body>
 </html>
