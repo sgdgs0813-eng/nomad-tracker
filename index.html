@@ -1499,23 +1499,6 @@ function initTrouble() {
 }
 
 // ─────────────────────────────────────────────
-// INIT
-// ─────────────────────────────────────────────
-const days = ['日','月','火','水','木','金','土'];
-document.getElementById('date-text').textContent = `${TODAY.getMonth()+1}/${TODAY.getDate()}（${days[DOW]}）`;
-document.getElementById('week-label').textContent = weekLabel(0);
-
-loadDailyForCurrentDate();
-updateDailyDateNav();
-renderDaily();
-updateGoalBar();
-initSleep();
-initDepend();
-initTrouble();
-syncFromSupabase();
-initNotifications();
-
-// ─────────────────────────────────────────────
 // NOTIFICATIONS
 // ─────────────────────────────────────────────
 const REMINDER_KEY = 'nomad_reminders_v1';
@@ -1529,7 +1512,6 @@ function saveReminders(list) {
 }
 
 async function initNotifications() {
-  // Service Worker 登録
   if ('serviceWorker' in navigator) {
     try {
       swRegistration = await navigator.serviceWorker.register('/sw.js');
@@ -1545,8 +1527,7 @@ function updateNotifStatus() {
   if (!el) return;
   if (!('Notification' in window)) {
     el.textContent = '❌ このブラウザは通知に対応していません';
-    el.style.color = 'var(--pink)';
-    return;
+    el.style.color = 'var(--pink)'; return;
   }
   const perm = Notification.permission;
   if (perm === 'granted') {
@@ -1639,6 +1620,23 @@ function sendScheduleToSW() {
     reminders: list.map(r => ({ hour: r.hour, minute: r.minute, label: r.label }))
   });
 }
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+const days = ['日','月','火','水','木','金','土'];
+document.getElementById('date-text').textContent = `${TODAY.getMonth()+1}/${TODAY.getDate()}（${days[DOW]}）`;
+document.getElementById('week-label').textContent = weekLabel(0);
+
+loadDailyForCurrentDate();
+updateDailyDateNav();
+renderDaily();
+updateGoalBar();
+initSleep();
+initDepend();
+initTrouble();
+syncFromSupabase();
+initNotifications();
 </script>
 </body>
 </html>
